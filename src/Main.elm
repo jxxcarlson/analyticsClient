@@ -108,7 +108,7 @@ getZone =
 -- VIEW
 --
 
-appWidth = 600
+appWidth = 700
 appHeight = 800
 
 fontGray g = Font.color (Element.rgb g g g )
@@ -156,13 +156,13 @@ outputDisplay_ model =
     column [ spacing 8
              , Background.color (Element.rgb 1.0 1.0 1.0)
              , paddingXY 8 12
-            , width (px 600)]
+            , width (px appWidth)]
         [ viewEventList model.zone model.queryString model.eventList ]
 
 viewEventList: Time.Zone -> String -> (List Event) -> Element msg
 viewEventList zone queryString eventList =
-  Element.table [width (px 600), height (px 500), Font.size 14, spacing 8, scrollbarY, clipX]
-    { data =  Query.runQueriesWithString queryString  eventList
+  Element.table [width (px appWidth), height (px 500), Font.size 14, spacing 8, scrollbarY, clipX]
+    { data =  Query.runQueriesWithString queryString  (List.reverse eventList)
     , columns =
         [ { header = el [Font.bold] (Element.text "id")
           , width = (px 40)
@@ -170,19 +170,19 @@ viewEventList zone queryString eventList =
                 \event ->
                     Element.text (String.fromInt event.id)
           }
-        , { header = el [Font.bold] (Element.text "user name")
+        , { header = el [Font.bold] (Element.text "User")
           , width = (px 140)
           , view =
                 \event ->
                     Element.text event.username
           }
-        , { header = el [Font.bold] (Element.text "event name")
-                  , width = (px 200)
+        , { header = el [Font.bold] (Element.text "Event")
+                  , width = (px 300)
                   , view =
                         \event ->
                             Element.text event.eventname
                   }
-        , { header = el [Font.bold] (Element.text "event time")
+        , { header = el [Font.bold] (Element.text "Time")
                           , width = (px 200)
                           , view =
                                 \event ->
@@ -228,7 +228,7 @@ monthToString month =
 
 inputText : Model -> Element Msg
 inputText model =
-    Input.text [width (px 600), Utility.onEnter DoSearch |> Element.htmlAttribute ]
+    Input.text [width (px appWidth), Utility.onEnter DoSearch |> Element.htmlAttribute ]
         { onChange = InputText
         , text = model.queryString
         , placeholder = Nothing

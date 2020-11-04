@@ -38,22 +38,22 @@ query = oneOf [notUsername, notEventname, username, eventname]
 
 username : Parser QueryTerm
 username = succeed Username
-     |. symbol "u:"
+     |. symbol "u."
      |= identifier
 
 notUsername : Parser QueryTerm
 notUsername = succeed NotUsername
-     |. symbol "-u:"
+     |. symbol "-u."
      |= identifier
 
 eventname : Parser QueryTerm
 eventname = succeed Eventname
-     |. symbol "e:"
+     |. symbol "e."
      |= identifier
 
 notEventname : Parser QueryTerm
 notEventname = succeed NotEventname
-     |. symbol "-e:"
+     |. symbol "-e."
      |= identifier
 
 identifier : Parser String

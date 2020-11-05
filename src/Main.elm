@@ -147,22 +147,25 @@ title str =
 
 outputDisplay : Model -> Element msg
 outputDisplay model =
+    let
+       filteredEventList =  Query.runQueriesWithString model.queryString  (List.reverse model.eventList)
+    in
     column [ spacing 8 ]
-        [ el [fontGray 0.9] (text <| "Data: " ++ String.fromInt (List.length model.eventList))
-        , outputDisplay_ model]            
+        [ el [fontGray 0.9] (text <| "Data: " ++ String.fromInt (List.length filteredEventList))
+        , outputDisplay_ model filteredEventList]
 
-outputDisplay_ : Model -> Element msg
-outputDisplay_ model =
+outputDisplay_ : Model -> List Event -> Element msg
+outputDisplay_ model events =
     column [ spacing 8
              , Background.color (Element.rgb 1.0 1.0 1.0)
              , paddingXY 8 12
             , width (px appWidth)]
-        [ viewEventList model.zone model.queryString model.eventList ]
+        [ viewEventList model.zone events ]
 
-viewEventList: Time.Zone -> String -> (List Event) -> Element msg
-viewEventList zone queryString eventList =
+viewEventList: Time.Zone -> (List Event) -> Element msg
+viewEventList zone eventList =
   Element.table [width (px appWidth), height (px 500), Font.size 14, spacing 8, scrollbarY, clipX]
-    { data =  Query.runQueriesWithString queryString  (List.reverse eventList)
+    { data =  eventList
     , columns =
         [ { header = el [Font.bold] (Element.text "id")
           , width = (px 40)

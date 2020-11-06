@@ -152,7 +152,7 @@ outputDisplay model =
     in
     column [ spacing 8 ]
         [ el [fontGray 0.9] (text <| "Data: " ++ String.fromInt (List.length filteredEventList))
-        , outputDisplay_ model filteredEventList]
+        , outputDisplay_ model filteredEventList    ]
 
 outputDisplay_ : Model -> List Event -> Element msg
 outputDisplay_ model events =

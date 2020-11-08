@@ -139,10 +139,11 @@ mainColumn model =
     column mainColumnStyle
         [ column [ spacing 36, width (px appWidth), height (px appHeight) ]
             [ title "Analytics"
-            , row [spacing 8] [filterDataButton, inputText model]
+            , column [spacing 12] [
+                getDataButton
+              , row [spacing 8] [filterDataButton, inputText model]
+              ]
             , outputDisplay model
-            , getDataButton
-            
             ]
         ]
 
@@ -191,7 +192,7 @@ viewEventList zone eventList =
           , width = (px 100)
           , view =
                 \event ->
-                    Element.text event.username
+                    Element.text (String.left 12 event.username)
           }
         , { header = el [Font.bold] (Element.text "Session")
                   , width = (px 100)
@@ -251,7 +252,7 @@ monthToString month =
 
 inputText : Model -> Element Msg
 inputText model =
-    Input.text [width (px (appWidth - 100)), Utility.onEnter DoSearch |> Element.htmlAttribute ]
+    Input.text [width (px (appWidth - 110)), Utility.onEnter DoSearch |> Element.htmlAttribute ]
         { onChange = InputText
         , text = model.queryString
         , placeholder = Nothing
@@ -295,6 +296,7 @@ buttonStyle =
     [ Background.color (Element.rgb 0.5 0.5 1.0)
     , Font.color (rgb255 255 255 255)
     , paddingXY 15 8
+    , width (px 100)
     , pointer
     , mouseDown [ buttonFontSize, Background.color mouseDownColor ]
     ]

@@ -11,6 +11,7 @@ import Iso8601
 type QueryTerm =
   Username String
   | NotUsername String
+  | Session String
   | Eventname String
   | NotEventname String
   | EventDate DateRelation Posix
@@ -34,6 +35,7 @@ filterBy qt evlist =
     case qt of
         Username u -> List.filter (\ev -> String.contains u ev.username) evlist
         NotUsername u -> List.filter (\ev -> not <| String.contains u ev.username) evlist
+        Session s -> List.filter (\ev -> String.contains s ev.session) evlist
         Eventname e -> List.filter (\ev -> String.contains e ev.eventname) evlist
         NotEventname e -> List.filter (\ev -> not <| String.contains e ev.eventname) evlist
         EventDate DRBefore t -> List.filter (\ev -> posixLessThan ev t) evlist
@@ -53,11 +55,16 @@ queries : Parser (List QueryTerm)
 queries = many query
 
 query : Parser QueryTerm
-query = oneOf [notUsername, notEventname, username, eventname, eventDate]
+query = oneOf [notUsername, notEventname, username, session, eventname, eventDate]
 
 username : Parser QueryTerm
 username = succeed Username
      |. symbol "u."
+     |= identifier
+
+session : Parser QueryTerm
+session = succeed Session
+     |. symbol "s."
      |= identifier
 
 notUsername : Parser QueryTerm

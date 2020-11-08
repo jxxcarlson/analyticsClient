@@ -95,6 +95,7 @@ primitiveDateToISO8601 pd =
     [pd.year, pd.month, pd.day]
       |> List.map (String.fromInt >> String.padLeft 2 '0' )
       |> String.join "-"
+      |> (\x -> x ++ "T00:00:00.000-05:00")
 
 primitiveDateToPosix : PrimitiveDate -> Posix
 primitiveDateToPosix pd =

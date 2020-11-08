@@ -12,6 +12,7 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input
+import Element.Lazy
 import Http
 import Analytics exposing(Event)
 import Time exposing(Posix, Month(..))
@@ -32,6 +33,8 @@ type alias Model =
     { queryString : String
     , output : String
     , eventList : List Event
+    , eventListLength : Int
+    , filteredEventList : List Event
     , zone : Time.Zone
     }
 
@@ -43,6 +46,7 @@ type Msg
     | GotData (Result Http.Error (List Event))
     | GotZone Time.Zone
     | DoSearch
+    | Filter
 
 
 
@@ -55,6 +59,8 @@ init flags =
     ( { queryString = ""
       , output = ""
       , eventList = []
+      , eventListLength = 0
+      , filteredEventList = []
       , zone = Time.utc
       }
     , getZone
@@ -81,7 +87,15 @@ update msg model =
         GotData result ->
             case result of
                 Err _ -> (model, Cmd.none)
-                Ok value -> ({model | eventList = value}, Cmd.none)
+                Ok value -> ({model | eventList = value
+                                , eventListLength = List.length value
+                                , filteredEventList = Query.runQueriesWithString model.queryString  (List.reverse  value)
+                              }
+                               , Cmd.none)
+
+        Filter ->
+           ( { model | filteredEventList =
+               Query.runQueriesWithString model.queryString  (List.reverse model.eventList) }, Cmd.none)
 
         GotZone zone ->
             ({ model | zone = zone}, Cmd.none )
@@ -125,7 +139,7 @@ mainColumn model =
     column mainColumnStyle
         [ column [ spacing 36, width (px appWidth), height (px appHeight) ]
             [ title "Analytics"
-            , inputText model
+            , row [spacing 8] [filterDataButton, inputText model]
             , outputDisplay model
             , getDataButton
             
@@ -147,12 +161,12 @@ title str =
 
 outputDisplay : Model -> Element msg
 outputDisplay model =
-    let
-       filteredEventList =  Query.runQueriesWithString model.queryString  (List.reverse model.eventList)
-    in
     column [ spacing 8 ]
-        [ el [fontGray 0.9] (text <| "Data: " ++ String.fromInt (List.length filteredEventList))
-        , outputDisplay_ model filteredEventList    ]
+        [ el [fontGray 0.9] (text <| "Data (filtered/all): "
+               ++ String.fromInt (List.length model.filteredEventList)
+               ++ "/"
+               ++ String.fromInt (model.eventListLength))
+        , outputDisplay_ model model.filteredEventList]
 
 outputDisplay_ : Model -> List Event -> Element msg
 outputDisplay_ model events =
@@ -160,7 +174,7 @@ outputDisplay_ model events =
              , Background.color (Element.rgb 1.0 1.0 1.0)
              , paddingXY 8 12
             , width (px appWidth)]
-        [ viewEventList model.zone events ]
+        [ Element.Lazy.lazy2 viewEventList model.zone events ]
 
 viewEventList: Time.Zone -> (List Event) -> Element msg
 viewEventList zone eventList =
@@ -174,13 +188,19 @@ viewEventList zone eventList =
                     Element.text (String.fromInt event.id)
           }
         , { header = el [Font.bold] (Element.text "User")
-          , width = (px 140)
+          , width = (px 100)
           , view =
                 \event ->
                     Element.text event.username
           }
+        , { header = el [Font.bold] (Element.text "Session")
+                  , width = (px 100)
+                  , view =
+                        \event ->
+                            Element.text (String.left 8 event.session)
+                  }
         , { header = el [Font.bold] (Element.text "Event")
-                  , width = (px 300)
+                  , width = (px 200)
                   , view =
                         \event ->
                             Element.text event.eventname
@@ -202,13 +222,13 @@ posixToString_ : Time.Zone -> Posix -> String
 posixToString_ zone time =
   monthToString (Time.toMonth zone time)
   ++ " " ++
-  String.fromInt (Time.toDay zone time)
+  (String.padLeft 2 '0' <| String.fromInt (Time.toDay zone time))
   ++ ", " ++
-  String.fromInt (Time.toHour zone time)
+  (String.padLeft 2 '0' <| String.fromInt (Time.toHour zone time))
   ++ ":" ++
-  String.fromInt (Time.toMinute zone time)
+  (String.padLeft 2 '0' <|String.fromInt (Time.toMinute zone time))
   ++ ":" ++
-  String.fromInt (Time.toSecond zone time)
+  (String.padLeft 2 '0' <|String.fromInt (Time.toSecond zone time))
 
 
 monthToString : Month -> String
@@ -231,11 +251,11 @@ monthToString month =
 
 inputText : Model -> Element Msg
 inputText model =
-    Input.text [width (px appWidth), Utility.onEnter DoSearch |> Element.htmlAttribute ]
+    Input.text [width (px (appWidth - 100)), Utility.onEnter DoSearch |> Element.htmlAttribute ]
         { onChange = InputText
         , text = model.queryString
         , placeholder = Nothing
-        , label = Input.labelAbove [fontGray 0.9] <| el [] (text "Filter")
+        , label = Input.labelLeft[fontGray 0.9] <| el [] (text "")
         }
 
 
@@ -248,6 +268,14 @@ getDataButton =
             }
         ]
 
+filterDataButton : Element Msg
+filterDataButton =
+    row [  ]
+        [ Input.button buttonStyle
+            { onPress = Just Filter
+            , label = el [ centerX, centerY ] (text "Filter")
+            }
+        ]
 
 
 --
@@ -267,8 +295,14 @@ buttonStyle =
     [ Background.color (Element.rgb 0.5 0.5 1.0)
     , Font.color (rgb255 255 255 255)
     , paddingXY 15 8
+    , pointer
+    , mouseDown [ buttonFontSize, Background.color mouseDownColor ]
     ]
 
+buttonFontSize =
+    Font.size 16
 
+mouseDownColor =
+    Element.rgb 0.7 0.1 0.1
 
 --

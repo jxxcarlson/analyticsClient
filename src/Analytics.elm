@@ -16,19 +16,19 @@ type alias Event = {
 
 type alias Username = String
 
-sessionIds: List Event -> List Int
+sessionIds: List Event -> List String
 sessionIds events =
     events
-      |> List.map (.username >> session)
+      |> List.map .session
       |> List.Extra.unique
+      |> List.sort
 
-session : Username -> Int
-session username =
-    username
-      |> String.split  ":"
-      |> List.Extra.getAt 1
-      |> Maybe.andThen String.toInt
-      |> Maybe.withDefault 0
+usernames: List Event -> List String
+usernames events =
+    events
+      |> List.map .username
+      |> List.Extra.unique
+      |> List.sort
 
 
 

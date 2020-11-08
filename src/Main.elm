@@ -122,8 +122,11 @@ getZone =
 -- VIEW
 --
 
-appWidth = 700
+appWidth = 1170
 appHeight = 800
+lhsWidth = 700
+
+white = (Element.rgb 1.0 1.0 1.0)
 
 fontGray g = Font.color (Element.rgb g g g )
 bgGray g =  Background.color (Element.rgb g g g)
@@ -163,23 +166,74 @@ title str =
 outputDisplay : Model -> Element msg
 outputDisplay model =
     column [ spacing 8 ]
-        [ el [fontGray 0.9] (text <| "Data (filtered/all): "
-               ++ String.fromInt (List.length model.filteredEventList)
-               ++ "/"
-               ++ String.fromInt (model.eventListLength))
-        , outputDisplay_ model model.filteredEventList]
+        [
+         row [spacing 24] [
+            outputDisplay_ model model.filteredEventList
+          , row [spacing 24] [
+                 usernameDisplay model
+               , sessionDisplay model
+            ]
+           ]
+         ]
+
+sessionDisplay : Model -> Element msg
+sessionDisplay model =
+   let
+     sessions = Analytics.sessionIds model.filteredEventList
+   in
+    column [scrollbarY
+      , width (px 200)
+      , height (px 520)
+      , paddingXY 8 8
+      , Background.color white
+      , Font.size 16
+      , spacing 8
+      ]
+      (List.map (\s -> el [] (text s)) sessions)
+
+
+usernameDisplay : Model -> Element msg
+usernameDisplay model =
+   let
+     sessions = Analytics.usernames model.filteredEventList
+   in
+     column [spacing 12, Background.color white, Font.size 16, paddingXY 8 8] [
+        usernameHeading sessions
+        , usernameDisplay_ sessions
+       ]
+
+
+usernameDisplay_ : (List String) -> Element msg
+usernameDisplay_ sessions =
+    (column [scrollbarY
+      , width (px 200)
+      , height (px 510)
+      , paddingXY 8 8
+      , Background.color white
+      , Font.size 16
+      , spacing 8
+      ]
+      (List.map (\s -> el [] (text s)) sessions))
+
+usernameHeading sessions =
+  el [fontGray 0.4] (text <| "Sessions: " ++ String.fromInt (List.length sessions))
 
 outputDisplay_ : Model -> List Event -> Element msg
 outputDisplay_ model events =
     column [ spacing 8
-             , Background.color (Element.rgb 1.0 1.0 1.0)
+             , Background.color white
              , paddingXY 8 12
-            , width (px appWidth)]
-        [ Element.Lazy.lazy2 viewEventList model.zone events ]
+             , spacing 12
+            , width (px lhsWidth)]
+        [ el [fontGray 0.4] (text <| "Data (filtered/all): "
+                         ++ String.fromInt (List.length model.filteredEventList)
+                         ++ "/"
+                         ++ String.fromInt (model.eventListLength))
+         ,Element.Lazy.lazy2 viewEventList model.zone events ]
 
 viewEventList: Time.Zone -> (List Event) -> Element msg
 viewEventList zone eventList =
-  Element.table [width (px appWidth), height (px 500), Font.size 14, spacing 8, scrollbarY, clipX]
+  Element.table [width (px lhsWidth), height (px 500), Font.size 14, spacing 8, scrollbarY, clipX]
     { data =  eventList
     , columns =
         [ { header = el [Font.bold] (Element.text "id")
@@ -192,13 +246,13 @@ viewEventList zone eventList =
           , width = (px 100)
           , view =
                 \event ->
-                    Element.text (String.left 12 event.username)
+                    Element.text event.username
           }
         , { header = el [Font.bold] (Element.text "Session")
                   , width = (px 100)
                   , view =
                         \event ->
-                            Element.text (String.left 8 event.session)
+                            Element.text event.session
                   }
         , { header = el [Font.bold] (Element.text "Event")
                   , width = (px 200)
@@ -252,7 +306,7 @@ monthToString month =
 
 inputText : Model -> Element Msg
 inputText model =
-    Input.text [width (px (appWidth - 110)), Utility.onEnter DoSearch |> Element.htmlAttribute ]
+    Input.text [width (px (lhsWidth - 110)), Utility.onEnter DoSearch |> Element.htmlAttribute ]
         { onChange = InputText
         , text = model.queryString
         , placeholder = Nothing

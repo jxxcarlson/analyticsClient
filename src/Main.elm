@@ -46,6 +46,7 @@ type Msg
     | GotData (Result Http.Error (List Event))
     | GotZone Time.Zone
     | DoSearch
+    | DoQuery String
     | Filter
 
 
@@ -101,7 +102,13 @@ update msg model =
             ({ model | zone = zone}, Cmd.none )
 
         DoSearch ->
-            ( model, Cmd.none)
+            ( {model | filteredEventList = Query.runQueriesWithString model.queryString  (List.reverse model.eventList) }
+                                            , Cmd.none)
+
+        DoQuery queryString ->
+                    ( {model | filteredEventList =
+                                     Query.runQueriesWithString queryString  (List.reverse model.eventList) }
+                                , Cmd.none)
 
 
 
@@ -122,11 +129,12 @@ getZone =
 -- VIEW
 --
 
-appWidth = 1170
+appWidth = 1130
 appHeight = 800
 lhsWidth = 700
 
 white = (Element.rgb 1.0 1.0 1.0)
+blue = (Element.rgb 0 0 0.8)
 
 fontGray g = Font.color (Element.rgb g g g )
 bgGray g =  Background.color (Element.rgb g g g)
@@ -163,7 +171,7 @@ title str =
 
 
 
-outputDisplay : Model -> Element msg
+outputDisplay : Model -> Element Msg
 outputDisplay model =
     column [ spacing 8 ]
         [
@@ -176,47 +184,83 @@ outputDisplay model =
            ]
          ]
 
-sessionDisplay : Model -> Element msg
+
+-- ION
+
+sessionDisplay : Model -> Element Msg
 sessionDisplay model =
    let
-     sessions = Analytics.sessionIds model.filteredEventList
+     sessions = Analytics.sessionIds model.eventList
    in
+   column [spacing 0, Background.color white, Font.size 16, paddingXY 8 8] [
+        sessionHeading sessions
+      , sessionDisplay_ model sessions
+    ]
+
+sessionDisplay_ : Model -> List String -> Element Msg
+sessionDisplay_ model sessions =
+
     column [scrollbarY
-      , width (px 200)
+      , width (px 170)
       , height (px 520)
       , paddingXY 8 8
       , Background.color white
       , Font.size 16
       , spacing 8
       ]
-      (List.map (\s -> el [] (text s)) sessions)
+      (List.map (\s -> viewSession s) sessions)
 
+viewSession : String -> Element Msg
+viewSession session =
+    row [  ]
+         [ Input.button [Font.color blue]
+             { onPress = Just (DoQuery ("s." ++ session))
+             , label = el [ centerX, centerY ] (text session)
+             }
+         ]
 
-usernameDisplay : Model -> Element msg
+-- USERNAME GENESEE
+
+usernameDisplay : Model -> Element Msg
 usernameDisplay model =
    let
-     sessions = Analytics.usernames model.filteredEventList
+     usernames = Analytics.usernames model.eventList
    in
      column [spacing 12, Background.color white, Font.size 16, paddingXY 8 8] [
-        usernameHeading sessions
-        , usernameDisplay_ sessions
+        usernameHeading usernames
+        , usernameDisplay_ usernames
        ]
 
 
-usernameDisplay_ : (List String) -> Element msg
-usernameDisplay_ sessions =
-    (column [scrollbarY
-      , width (px 200)
+usernameDisplay_ : (List String) -> Element Msg
+usernameDisplay_ usernames =
+    column [scrollbarY
+      , width (px 170)
       , height (px 510)
       , paddingXY 8 8
       , Background.color white
       , Font.size 16
       , spacing 8
       ]
-      (List.map (\s -> el [] (text s)) sessions))
+      (List.map (\u -> viewUsername u) usernames)
 
-usernameHeading sessions =
+viewUsername : String -> Element Msg
+viewUsername username =
+    row [  ]
+         [ Input.button [Font.color blue]
+             { onPress = Just (DoQuery ("u." ++ username))
+             , label = el [ centerX, centerY ] (text username)
+             }
+         ]
+
+usernameHeading usernames =
+  el [fontGray 0.4] (text <| "Usernames: " ++ String.fromInt (List.length usernames))
+
+sessionHeading sessions =
   el [fontGray 0.4] (text <| "Sessions: " ++ String.fromInt (List.length sessions))
+
+
+
 
 outputDisplay_ : Model -> List Event -> Element msg
 outputDisplay_ model events =

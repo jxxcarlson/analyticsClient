@@ -35,6 +35,8 @@ type alias Model =
     , eventList : List Event
     , eventListLength : Int
     , filteredEventList : List Event
+    , currentSession : String
+    , currentUser : String
     , zone : Time.Zone
     }
 
@@ -46,10 +48,11 @@ type Msg
     | GotData (Result Http.Error (List Event))
     | GotZone Time.Zone
     | DoSearch
-    | DoQuery String
+    | DoQuery QueryType String
     | Filter
 
 
+type QueryType = Session | Username
 
 type alias Flags =
     {}
@@ -62,6 +65,8 @@ init flags =
       , eventList = []
       , eventListLength = 0
       , filteredEventList = []
+      , currentSession = ""
+      , currentUser = ""
       , zone = Time.utc
       }
     , getZone
@@ -105,10 +110,23 @@ update msg model =
             ( {model | filteredEventList = Query.runQueriesWithString model.queryString  (List.reverse model.eventList) }
                                             , Cmd.none)
 
-        DoQuery queryString ->
-                    ( {model | filteredEventList =
-                                     Query.runQueriesWithString queryString  (List.reverse model.eventList) }
-                                , Cmd.none)
+        DoQuery queryType queryString ->
+            let
+                query = case queryType of
+                           Session -> "s." ++ queryString
+                           Username -> "u." ++ queryString
+
+                (currentUser, currentSession) = case queryType of
+                           Session -> ("", queryString)
+                           Username -> (queryString, "")
+            in
+            ( {model |   currentUser = currentUser
+                       , currentSession = currentSession
+                       , filteredEventList =
+                             Query.runQueriesWithString
+                                (query ++ " " ++ model.queryString)
+                                (List.reverse model.eventList) }
+                        , Cmd.none)
 
 
 
@@ -135,6 +153,7 @@ lhsWidth = 700
 
 white = (Element.rgb 1.0 1.0 1.0)
 blue = (Element.rgb 0 0 0.8)
+red = (Element.rgb 0.8 0 0)
 
 fontGray g = Font.color (Element.rgb g g g )
 bgGray g =  Background.color (Element.rgb g g g)
@@ -208,17 +227,32 @@ sessionDisplay_ model sessions =
       , Font.size 16
       , spacing 8
       ]
-      (List.map (\s -> viewSession s) sessions)
+      (List.map (\s -> viewSession model.currentSession s) sessions)
 
-viewSession : String -> Element Msg
-viewSession session =
+viewSession : String -> String -> Element Msg
+viewSession currentSession session =
+    let
+      color = if session == currentSession
+              then
+                  Font.color red
+              else
+                  Font.color blue
+    in
     row [  ]
-         [ Input.button [Font.color blue]
-             { onPress = Just (DoQuery ("s." ++ session))
+         [ Input.button [color]
+             { onPress = Just (DoQuery  Session session)
              , label = el [ centerX, centerY ] (text session)
              }
          ]
 
+viewSession_ :  String -> Element Msg
+viewSession_ session =
+    row [  ]
+         [ Input.button [Font.color blue]
+             { onPress = Just (DoQuery  Session session)
+             , label = el [ centerX, centerY ] (text session)
+             }
+         ]
 -- USERNAME GENESEE
 
 usernameDisplay : Model -> Element Msg
@@ -228,12 +262,12 @@ usernameDisplay model =
    in
      column [spacing 12, Background.color white, Font.size 16, paddingXY 8 8] [
         usernameHeading usernames
-        , usernameDisplay_ usernames
+        , usernameDisplay_ model.currentUser usernames
        ]
 
 
-usernameDisplay_ : (List String) -> Element Msg
-usernameDisplay_ usernames =
+usernameDisplay_ : String -> (List String) -> Element Msg
+usernameDisplay_ currentUser usernames =
     column [scrollbarY
       , width (px 170)
       , height (px 510)
@@ -242,13 +276,29 @@ usernameDisplay_ usernames =
       , Font.size 16
       , spacing 8
       ]
-      (List.map (\u -> viewUsername u) usernames)
+      (List.map (\u -> viewUsername currentUser u) usernames)
 
-viewUsername : String -> Element Msg
-viewUsername username =
+viewUsername : String -> String -> Element Msg
+viewUsername currentUser username =
+    let
+        color = if username == currentUser
+                then
+                    Font.color red
+                else
+                    Font.color blue
+    in
+    row [  color ]
+         [ Input.button [color]
+             { onPress = Just (DoQuery Username username)
+             , label = el [ centerX, centerY ] (text username)
+             }
+         ]
+
+viewUsername_ : String -> Element Msg
+viewUsername_ username =
     row [  ]
          [ Input.button [Font.color blue]
-             { onPress = Just (DoQuery ("u." ++ username))
+             { onPress = Just (DoQuery Username username)
              , label = el [ centerX, centerY ] (text username)
              }
          ]
@@ -262,7 +312,7 @@ sessionHeading sessions =
 
 
 
-outputDisplay_ : Model -> List Event -> Element msg
+outputDisplay_ : Model -> List Event -> Element Msg
 outputDisplay_ model events =
     column [ spacing 8
              , Background.color white
@@ -273,10 +323,10 @@ outputDisplay_ model events =
                          ++ String.fromInt (List.length model.filteredEventList)
                          ++ "/"
                          ++ String.fromInt (model.eventListLength))
-         ,Element.Lazy.lazy2 viewEventList model.zone events ]
+         ,Element.Lazy.lazy3 viewEventList model.zone model.currentSession events ]
 
-viewEventList: Time.Zone -> (List Event) -> Element msg
-viewEventList zone eventList =
+viewEventList: Time.Zone -> String -> (List Event) -> Element Msg
+viewEventList  zone currentSession eventList =
   Element.table [width (px lhsWidth), height (px 500), Font.size 14, spacing 8, scrollbarY, clipX]
     { data =  eventList
     , columns =
@@ -290,16 +340,16 @@ viewEventList zone eventList =
           , width = (px 100)
           , view =
                 \event ->
-                    Element.text event.username
+                    viewUsername_ event.username
           }
         , { header = el [Font.bold] (Element.text "Session")
                   , width = (px 100)
                   , view =
                         \event ->
-                            Element.text event.session
+                            viewSession_  event.session
                   }
         , { header = el [Font.bold] (Element.text "Event")
-                  , width = (px 200)
+                  , width = (px 300)
                   , view =
                         \event ->
                             Element.text event.eventname

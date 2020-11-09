@@ -16,8 +16,10 @@ type QueryTerm =
   | Eventname String
   | NotEventname String
   | EventDate DateRelation Posix
+  | EventDateWithTime DateRelation Posix
 
 type alias PrimitiveDate = {month : Int, day: Int, year : Int}
+type alias PrimitiveDateWithTime = {month : Int, day: Int, year : Int, hour: Int, minute: Int}
 
 type DateRelation = DRBefore | DRAfter | DRUnknown
 
@@ -43,6 +45,10 @@ filterBy qt evlist =
         EventDate DRBefore t -> List.filter (\ev -> posixLessThan ev t) evlist
         EventDate DRAfter t -> List.filter (\ev -> posixGreaterThan ev t) evlist
         EventDate DRUnknown t -> evlist
+        EventDateWithTime DRBefore t -> List.filter (\ev -> posixLessThan ev t) evlist
+        EventDateWithTime DRAfter t -> List.filter (\ev -> posixGreaterThan ev t) evlist
+        EventDateWithTime DRUnknown t -> evlist
+
 
 posixGreaterThan : Event -> Posix -> Bool
 posixGreaterThan e p = Time.posixToMillis e.eventtime > Time.posixToMillis p
@@ -57,7 +63,7 @@ queries : Parser (List QueryTerm)
 queries = many query
 
 query : Parser QueryTerm
-query = oneOf [notUsername, notEventname, username, session, notsession, eventname, eventDate]
+query = oneOf [notUsername, notEventname, username, session, notsession, eventname, eventDateWithTime, eventDate]
 
 username : Parser QueryTerm
 username = succeed Username
@@ -117,9 +123,52 @@ primitiveDateToPosix pd =
         Ok time -> time
         Err _ -> Time.millisToPosix 0
 
-date = 1604683832000
-    |> Time.millisToPosix
-    |> succeed
+
+
+-- WITH TIME
+
+eventDateWithTime : Parser QueryTerm
+eventDateWithTime= succeed EventDateWithTime
+  |. symbol "t."
+  |= dateRelation
+  |. symbol "."
+  |= (primitiveDateWithTime |> map primitiveDateWithTimeToPosix)
+
+primitiveDateWithTime : Parser PrimitiveDateWithTime
+primitiveDateWithTime = succeed PrimitiveDateWithTime
+   |= int
+   |. symbol "/"
+   |= int
+   |. symbol "/"
+   |= int
+   |. symbol ":"
+   |= (timeSegment |> map segmentToInt)
+   |. symbol ":"
+   |= (timeSegment |> map segmentToInt)
+
+segmentToInt : String -> Int
+segmentToInt str =
+   let
+      normalForm = if String.left 1 str == "0"
+                   then String.dropLeft 1 str
+                   else str
+   in
+   String.toInt normalForm |> Maybe.withDefault 0
+
+primitiveDateWithTimeToISO8601 : PrimitiveDateWithTime -> String
+primitiveDateWithTimeToISO8601 pd =
+   let
+      f x = x |> String.fromInt |> String.padLeft 2 '0'
+    in
+      (f pd.year) ++ "-" ++ (f pd.month) ++ "-" ++ (f pd.day) ++ "T" ++ (f pd.hour) ++ ":" ++ (f pd.minute) ++ ":00.000-05:00"
+
+
+primitiveDateWithTimeToPosix : PrimitiveDateWithTime -> Posix
+primitiveDateWithTimeToPosix pd =
+    case pd |> primitiveDateWithTimeToISO8601 |> Iso8601.toTime of
+        Ok time -> time
+        Err _ -> Time.millisToPosix 0
+
 
 stringToDateRelation : String -> DateRelation
 stringToDateRelation str =
@@ -146,6 +195,12 @@ identifier =
     succeed ()
       |. chompIf (\c -> c /= '-')
       |. chompWhile (\c -> c /= ' ')
+
+timeSegment : Parser String
+timeSegment =
+  getChompedString <|
+    succeed ()
+      |. chompWhile (\c -> c /= ':')
 
 
 

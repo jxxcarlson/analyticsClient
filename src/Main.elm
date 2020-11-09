@@ -31,10 +31,12 @@ main =
 
 type alias Model =
     { queryString : String
+    , auxQueryString : String
     , output : String
     , eventList : List Event
     , eventListLength : Int
     , filteredEventList : List Event
+    , auxFilteredEventList : List Event
     , currentSession : String
     , currentUser : String
     , zone : Time.Zone
@@ -44,10 +46,12 @@ type alias Model =
 type Msg
     = NoOp
     | InputText String
+    | InputAuxQueryString String
     | GetData
     | GotData (Result Http.Error (List Event))
     | GotZone Time.Zone
     | DoSearch
+    | DoAuxSearch
     | DoQuery QueryType String
     | Filter
 
@@ -61,10 +65,12 @@ type alias Flags =
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { queryString = ""
+      , auxQueryString =  ""
       , output = ""
       , eventList = []
       , eventListLength = 0
       , filteredEventList = []
+      , auxFilteredEventList = []
       , currentSession = ""
       , currentUser = ""
       , zone = Time.utc
@@ -87,6 +93,9 @@ update msg model =
         InputText str ->
             ( { model | queryString = str, output = str }, Cmd.none )
 
+        InputAuxQueryString str ->
+            ( { model | auxQueryString = str}, Cmd.none )
+
         GetData ->
             ( model, getData)
 
@@ -96,6 +105,9 @@ update msg model =
                 Ok value -> ({model | eventList = value
                                 , eventListLength = List.length value
                                 , filteredEventList = Query.runQueriesWithString model.queryString  (List.reverse  value)
+                                , auxFilteredEventList = Query.runQueriesWithString model.auxQueryString  (List.reverse  value)
+                                , currentSession = ""
+                                , currentUser = ""
                               }
                                , Cmd.none)
 
@@ -108,6 +120,9 @@ update msg model =
 
         DoSearch ->
             ( {model | filteredEventList = Query.runQueriesWithString model.queryString  (List.reverse model.eventList) }
+                                            , Cmd.none)
+        DoAuxSearch ->
+            ( {model | auxFilteredEventList = Query.runQueriesWithString model.auxQueryString  (List.reverse model.eventList) }
                                             , Cmd.none)
 
         DoQuery queryType queryString ->
@@ -171,7 +186,7 @@ mainColumn model =
             [ title "Analytics"
             , column [spacing 12] [
                 getDataButton
-              , row [spacing 8] [filterDataButton, inputText model]
+              , row [spacing 12] [filterDataButton, inputText model, inputAuxQueryString model ]
               ]
             , outputDisplay model
             ]
@@ -204,12 +219,13 @@ outputDisplay model =
          ]
 
 
--- ION
+-- SESSIONS
 
 sessionDisplay : Model -> Element Msg
 sessionDisplay model =
    let
-     sessions = Analytics.sessionIds model.eventList
+     -- TODO
+     sessions = Analytics.sessionIds model.auxFilteredEventList
    in
    column [spacing 0, Background.color white, Font.size 16, paddingXY 8 8] [
         sessionHeading sessions
@@ -258,7 +274,7 @@ viewSession_ session =
 usernameDisplay : Model -> Element Msg
 usernameDisplay model =
    let
-     usernames = Analytics.usernames model.eventList
+     usernames = Analytics.usernames model.auxFilteredEventList
    in
      column [spacing 12, Background.color white, Font.size 16, paddingXY 8 8] [
         usernameHeading usernames
@@ -407,6 +423,14 @@ inputText model =
         , label = Input.labelLeft[fontGray 0.9] <| el [] (text "")
         }
 
+inputAuxQueryString : Model -> Element Msg
+inputAuxQueryString model =
+    Input.text [width (px 395), Utility.onEnter DoAuxSearch |> Element.htmlAttribute ]
+        { onChange = InputAuxQueryString
+        , text = model.auxQueryString
+        , placeholder = Nothing
+        , label = Input.labelLeft[fontGray 0.9] <| el [] (text "")
+        }
 
 getDataButton : Element Msg
 getDataButton =
